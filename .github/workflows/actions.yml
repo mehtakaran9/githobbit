@@ -109,12 +109,12 @@ jobs:
             git commit -m "AUTO COMMITTED"
             git push origin ${{ inputs.target-branch }}
           fi
-      - name: create a pull request
-        run: |
-          cd ./${{ inputs.repository }}-fork
-          git checkout ${{ inputs.target-branch }}
-          gh pr create --fill --base ${{ inputs.repository }}:${{ inputs.branch }} --head ${{ inputs.repository }}-fork:${{ inputs.target-branch }}
-          # gh pr create --fill --base ${{ inputs.branch }} --repo ${{ inputs.owner }}/${{ inputs.repository }}
+      # - name: create a pull request
+      #   run: |
+      #     cd ./${{ inputs.repository }}-fork
+      #     git checkout ${{ inputs.target-branch }}
+      #     gh pr create --fill --base ${{ inputs.repository }}:${{ inputs.branch }} --head ${{ inputs.repository }}-fork:${{ inputs.target-branch }}
+      #     # gh pr create --fill --base ${{ inputs.branch }} --repo ${{ inputs.owner }}/${{ inputs.repository }}
         # uses: devops-infra/action-pull-request@v0.5.5
         # with:
         #   github_token: ${{ secrets.token }}
