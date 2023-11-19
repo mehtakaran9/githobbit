@@ -4,3 +4,4 @@ src/test/test-this.ts
 .DS_Store
 files/
 out/
+.vscode/

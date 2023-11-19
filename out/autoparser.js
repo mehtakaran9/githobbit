@@ -31,7 +31,7 @@ const typescript_1 = __importDefault(require("typescript"));
 const process_1 = require("process");
 const fs = __importStar(require("fs"));
 const es = __importStar(require("esprima"));
-const node_fetch_1 = __importDefault(require("node-fetch"));
+const child_process_1 = require("child_process");
 const PORT_NUM = 9090;
 var LINTER_THRESHOLD_MARGIN = 20;
 var INSERT_THRESHOLD_MARGIN = 20;
@@ -43,8 +43,8 @@ var modelBasedAnalysisTypes = 0;
 var common = 0;
 var couldNotInfer = 0;
 let importSet = new Set();
-var LOCALHOST_BASE_URL = 'http://localhost:';
-var REMOTE_BASE_URL = 'http://24.199.112.38:';
+var LOCALHOST_BASE_URL = "http://127.0.0.1:";
+var REMOTE_BASE_URL = "http://143.244.180.92:";
 importSet.add("require");
 let basicTypes = new Map();
 basicTypes.set(typescript_1.default.SyntaxKind.BooleanKeyword, "boolean");
@@ -73,7 +73,9 @@ ignoredTypes.add(typescript_1.default.SyntaxKind.TypeOperator);
 ignoredTypes.add(typescript_1.default.SyntaxKind.IntersectionType);
 ignoredTypes.add(typescript_1.default.SyntaxKind.TypeQuery);
 const dirPath = process_1.argv[2];
-const filteredFiles = (0, fs_readdir_recursive_1.default)(dirPath).filter(item => item.endsWith(".js") && !item.includes("node_modules") && !item.includes("autoparser.js"));
+const filteredFiles = (0, fs_readdir_recursive_1.default)(dirPath).filter((item) => item.endsWith(".js") &&
+    !item.includes("node_modules") &&
+    !item.includes("autoparser.js"));
 // var filename = "src/test/test-this.js";
 // var contents = readfile(filename);
 // var dirPath = "/Users/karanmehta/UCD/auto/githobbit";
@@ -82,7 +84,7 @@ const filteredFiles = (0, fs_readdir_recursive_1.default)(dirPath).filter(item =
 //         var dir : string = __dirname + '/temp/';
 //         if (!fs.existsSync(dir)) {
 //             fs.mkdirSync(dir);
-//         } 
+//         }
 //         let jsFile : string = changeExtension(line, "ts", "js");
 //         let newJsPath : string = dir + jsFile.split('/').pop();
 //         let newTsPath : string = dir + "original_" + line.split('/').pop();
@@ -100,7 +102,7 @@ const filteredFiles = (0, fs_readdir_recursive_1.default)(dirPath).filter(item =
 //     });
 // }
 function readfile(fileName) {
-    return fs.readFileSync(fileName, 'utf-8');
+    return fs.readFileSync(fileName, "utf-8");
 }
 function parseEntityName(n) {
     if (n.kind === typescript_1.default.SyntaxKind.Identifier) {
@@ -129,7 +131,8 @@ function parseType(node) {
         let n = node;
         return "object";
     }
-    else if (node.kind === typescript_1.default.SyntaxKind.FunctionType || node.kind === typescript_1.default.SyntaxKind.ConstructorType) {
+    else if (node.kind === typescript_1.default.SyntaxKind.FunctionType ||
+        node.kind === typescript_1.default.SyntaxKind.ConstructorType) {
         let n = node;
         let ret = parseType(n.type);
         type = ret;
@@ -143,21 +146,21 @@ function parseType(node) {
         }
         typesofUnion = [...new Set(typesofUnion)];
         typesofUnion = typesofUnion.filter(function (x) {
-            return x !== 'any';
+            return x !== "any";
         });
         if (typesofUnion.length === 2) {
             if (typesofUnion[1] === "null" || typesofUnion[1] === "undefined") {
                 return typesofUnion[0];
             }
             else {
-                return 'any';
+                return "any";
             }
         }
         else if (typesofUnion.length === 1) {
             return typesofUnion[0];
         }
         else {
-            return 'any';
+            return "any";
         }
     }
     else if (ignoredTypes.has(node.kind)) {
@@ -183,7 +186,8 @@ function parseType(node) {
         let n = node;
         return parseType(n.type);
     }
-    else if (node.kind === typescript_1.default.SyntaxKind.FirstTypeNode || node.kind === typescript_1.default.SyntaxKind.LastTypeNode) {
+    else if (node.kind === typescript_1.default.SyntaxKind.FirstTypeNode ||
+        node.kind === typescript_1.default.SyntaxKind.LastTypeNode) {
         type = "boolean";
     }
     else if (node.kind === typescript_1.default.SyntaxKind.TupleType) {
@@ -201,14 +205,20 @@ function fast_linter(checker, sourceFile, loc, word) {
     var typeCache = undefined;
     function visit(node) {
         if (node.kind === typescript_1.default.SyntaxKind.Identifier) {
-            if (node.getText() === word && (node.pos < loc + LINTER_THRESHOLD_MARGIN && node.pos > loc - LINTER_THRESHOLD_MARGIN)) {
+            if (node.getText() === word &&
+                node.pos < loc + LINTER_THRESHOLD_MARGIN &&
+                node.pos > loc - LINTER_THRESHOLD_MARGIN) {
                 word_index = tokens.length - 1;
                 inferred_type = typeCache;
             }
         }
-        else if (node.kind === typescript_1.default.SyntaxKind.VariableDeclaration || (node.kind === typescript_1.default.SyntaxKind.Parameter && node.parent.kind !== typescript_1.default.SyntaxKind.FunctionType) || node.kind === typescript_1.default.SyntaxKind.FunctionDeclaration || node.kind === typescript_1.default.SyntaxKind.MethodDeclaration) {
-            if (node.hasOwnProperty('name')) {
-                let symbol = checker.getSymbolAtLocation(node['name']);
+        else if (node.kind === typescript_1.default.SyntaxKind.VariableDeclaration ||
+            (node.kind === typescript_1.default.SyntaxKind.Parameter &&
+                node.parent.kind !== typescript_1.default.SyntaxKind.FunctionType) ||
+            node.kind === typescript_1.default.SyntaxKind.FunctionDeclaration ||
+            node.kind === typescript_1.default.SyntaxKind.MethodDeclaration) {
+            if (node.hasOwnProperty("name")) {
+                let symbol = checker.getSymbolAtLocation(node["name"]);
                 if (symbol) {
                     const ty = checker.getTypeAtLocation(node);
                     const n = checker.typeToTypeNode(ty, undefined, undefined);
@@ -231,7 +241,10 @@ function fast_linter(checker, sourceFile, loc, word) {
 }
 function ignoredElements(file_name) {
     var contents = readfile(file_name);
-    let parsed = es.parseScript(contents, { range: true, tokens: true });
+    let parsed = es.parseScript(contents, {
+        range: true,
+        tokens: true,
+    });
     let tokens = parsed.tokens;
     for (let i = 0; i < tokens.length; i++) {
         checkElement(tokens[i], i, tokens);
@@ -246,7 +259,8 @@ function identifyTokens(file_name, to_ignore, program) {
     let tokens = [];
     var sourcefile = program.getSourceFile(file_name);
     function nodeChecker(node) {
-        if (node.kind === typescript_1.default.SyntaxKind.Identifier && !to_ignore.has(node.getText())) {
+        if (node.kind === typescript_1.default.SyntaxKind.Identifier &&
+            !to_ignore.has(node.getText())) {
             tokens.push([node.getText(), node.pos]);
         }
         for (var child of node.getChildren(sourcefile)) {
@@ -273,22 +287,29 @@ async function automatedInserter(file_name, dir_path) {
             //fetching idx as doc position and the word to check annotations for
             var word_of_interest = initial_tokens[idx][0];
             var document_position = initial_tokens[idx][1];
-            //return tokens and static analysis result 
+            //return tokens and static analysis result
             let tokens_and_inferred = fast_linter(checker, sourcefile, document_position, word_of_interest);
             var tokens = tokens_and_inferred[0];
             var inferred_type = tokens_and_inferred[1];
             var word_index = tokens_and_inferred[2];
-            console.log(word_of_interest + " INFERRED TYPE: " + inferred_type + " WORD INDEX: " + word_index);
+            console.log(word_of_interest +
+                " INFERRED TYPE: " +
+                inferred_type +
+                " WORD INDEX: " +
+                word_index);
             if (inferred_type && word_index) {
-                let data = await getTypeSuggestions(JSON.stringify(tokens), word_index);
-                complete_list_of_types = getTypes(inferred_type, data);
-                let contents = insert(sourcefile, complete_list_of_types[0], document_position, word_of_interest);
-                file_name = changeExtension(file_name, "js", "ts");
-                writeToFile(file_name, contents);
-            }
-            else {
-                console.log("Could not infer type for: ", initial_tokens[idx]);
-                couldNotInfer++;
+                const result = await getTypeSuggestions(tokens, word_index);
+                if (result) {
+                    var complete_list_of_types = await getTypes(inferred_type, result);
+                    console.log(complete_list_of_types);
+                    var contents = insert(sourcefile, complete_list_of_types[0], document_position, word_of_interest);
+                    file_name = changeExtension(file_name, "js", "ts");
+                    writeToFile(file_name, contents);
+                }
+                else {
+                    console.log("Could not infer type for: ", initial_tokens[idx]);
+                    couldNotInfer++;
+                }
             }
             idx++;
         }
@@ -297,7 +318,7 @@ async function automatedInserter(file_name, dir_path) {
         console.log("Could not process the file", e);
     }
 }
-function getTypes(inferred_type, data) {
+async function getTypes(inferred_type, data) {
     complete_list_of_types = [];
     if (data != undefined) {
         totalDeepLearnerInferences++;
@@ -307,7 +328,7 @@ function getTypes(inferred_type, data) {
         if (data.type_suggestions[0] === inferred_type) {
             common++;
         }
-        if (data.probabilities[0] >= 0.90) {
+        if (data.probabilities[0] >= 0.9) {
             modelBasedAnalysisTypes++;
             complete_list_of_types = data.type_suggestions.concat([inferred_type]);
         }
@@ -330,7 +351,8 @@ function changeExtension(name, from, to) {
         splitter[splitter.length - 1] = to;
         new_file_name = "";
         for (let i = 0; i < splitter.length; i++) {
-            new_file_name += i !== splitter.length - 1 ? splitter[i] + "." : splitter[i];
+            new_file_name +=
+                i !== splitter.length - 1 ? splitter[i] + "." : splitter[i];
         }
     }
     return new_file_name;
@@ -343,12 +365,41 @@ function checkElement(element, idx, parsed) {
         return false;
     }
     // check for import statements. e.g const fs = require('fs');
-    if (idx + 2 < parsed.length && parsed[idx + 1].value === "=" && parsed[idx + 2].value === "require") {
+    if (idx + 2 < parsed.length &&
+        parsed[idx + 1].value === "=" &&
+        parsed[idx + 2].value === "require") {
         console.log("element rejected", element.value);
         importSet.add(element.value);
         return false;
     }
     return true;
+}
+async function getTypeSuggestions(tokens, word_index) {
+    return new Promise((resolve, reject) => {
+        const apiUrl = LOCALHOST_BASE_URL + PORT_NUM + "/suggest-types";
+        const jsonData = {
+            input_string: tokens,
+            word_index: word_index,
+        };
+        const curlCommand = `curl -XPOST -H 'Content-type: application/json' -d '${JSON.stringify(jsonData)}' ${apiUrl}`;
+        (0, child_process_1.exec)(curlCommand, (error, stdout, stderr) => {
+            if (error) {
+                console.error("Error executing curl command:", error);
+                reject(error); // Reject the promise with the error
+            }
+            else {
+                try {
+                    const result = JSON.parse(stdout);
+                    console.log("result from getTypeSuggesstions:", result);
+                    resolve(result); // Resolve the promise with the parsed result
+                }
+                catch (parseError) {
+                    console.error("Error parsing JSON response:", parseError);
+                    reject(parseError); // Reject the promise with the parse error
+                }
+            }
+        });
+    });
 }
 function incrementalCompile(dir) {
     const configPath = typescript_1.default.findConfigFile(dir, typescript_1.default.sys.fileExists, "tsconfig.json");
@@ -359,26 +410,20 @@ function incrementalCompile(dir) {
             rootNames: config.fileNames,
             options: config.options,
             configFileParsingDiagnostics: typescript_1.default.getConfigFileParsingDiagnostics(config),
-            projectReferences: config.projectReferences
+            projectReferences: config.projectReferences,
         });
         return project;
     }
 }
-async function getTypeSuggestions(tokens, word_index) {
-    try {
-        var params = { input_string: tokens, word_index: word_index };
-        const response = await (0, node_fetch_1.default)(REMOTE_BASE_URL + PORT_NUM + '/suggest-types?', { method: 'POST', body: JSON.stringify(params), headers: { 'Content-Type': 'application/json' } });
-        let data = await response.json();
-        return data;
-    }
-    catch (e) {
-        console.log("Could not get response from server for word_index: " + word_index);
-    }
-}
 function getType(deeplearnerType) {
     let source = `var t: ` + deeplearnerType + ` = null;`;
-    const sourceFile = typescript_1.default.createSourceFile('test.ts', source, typescript_1.default.ScriptTarget.ES2015, true, typescript_1.default.ScriptKind.TS);
-    return sourceFile.getChildren()[0].getChildren()[0].getChildren()[0].getChildren()[1].getChildren()[0]["type"];
+    const sourceFile = typescript_1.default.createSourceFile("test.ts", source, typescript_1.default.ScriptTarget.ES2015, true, typescript_1.default.ScriptKind.TS);
+    return sourceFile
+        .getChildren()[0]
+        .getChildren()[0]
+        .getChildren()[0]
+        .getChildren()[1]
+        .getChildren()[0]["type"];
 }
 function insert(sourceFile, type, loc, word) {
     var quickReturn = false;
@@ -392,16 +437,22 @@ function insert(sourceFile, type, loc, word) {
                 visit(child);
             }
             if (node.kind === typescript_1.default.SyntaxKind.Identifier) {
-                if (node.getText() === word && (node.pos < loc + INSERT_THRESHOLD_MARGIN && node.pos > loc - INSERT_THRESHOLD_MARGIN)) {
+                if (node.getText() === word &&
+                    node.pos < loc + INSERT_THRESHOLD_MARGIN &&
+                    node.pos > loc - INSERT_THRESHOLD_MARGIN) {
                     match_identifier = true;
                 }
             }
-            else if (match_identifier && (node.kind === typescript_1.default.SyntaxKind.FunctionDeclaration || node.kind === typescript_1.default.SyntaxKind.MethodDeclaration)) {
+            else if (match_identifier &&
+                (node.kind === typescript_1.default.SyntaxKind.FunctionDeclaration ||
+                    node.kind === typescript_1.default.SyntaxKind.MethodDeclaration)) {
                 node["type"] = getType(type);
                 quickReturn = true;
                 match_identifier = false;
             }
-            else if (match_identifier && (node.kind === typescript_1.default.SyntaxKind.VariableDeclaration || node.kind === typescript_1.default.SyntaxKind.Parameter)) {
+            else if (match_identifier &&
+                (node.kind === typescript_1.default.SyntaxKind.VariableDeclaration ||
+                    node.kind === typescript_1.default.SyntaxKind.Parameter)) {
                 node["type"] = getType(type);
                 quickReturn = true;
                 match_identifier = false;
@@ -415,7 +466,7 @@ function insert(sourceFile, type, loc, word) {
     const printer = typescript_1.default.createPrinter();
     return printer.printFile(transformedSourceFile);
 }
-filteredFiles.forEach(file => {
+filteredFiles.forEach((file) => {
     console.log("Current File: " + dirPath + "/" + file);
     automatedInserter(dirPath + "/" + file, dirPath).then(() => {
         console.log("Could not infer: ", couldNotInfer);
