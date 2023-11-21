@@ -5,6 +5,8 @@ import * as fs from "fs";
 import * as es from "esprima";
 import * as path from "path";
 import { exec } from "child_process";
+import { error } from "console";
+import axios from "axios";
 
 const PORT_NUM = 9090;
 var LINTER_THRESHOLD_MARGIN: number = 20;
@@ -297,16 +299,15 @@ async function automatedInserter(file_name: string, dir_path: string) {
       var word_index = tokens_and_inferred[2];
       console.log(
         word_of_interest +
-          " INFERRED TYPE: " +
-          inferred_type +
-          " WORD INDEX: " +
-          word_index
+        " INFERRED TYPE: " +
+        inferred_type +
+        " WORD INDEX: " +
+        word_index
       );
       if (inferred_type && word_index) {
         const result = await getTypeSuggestions(tokens, word_index);
         if (result) {
           var complete_list_of_types = await getTypes(inferred_type, result);
-          console.log(complete_list_of_types);
           var contents = insert(
             sourcefile,
             complete_list_of_types[0],
@@ -389,34 +390,33 @@ function checkElement(element: any, idx: number, parsed: any): boolean {
 }
 
 async function getTypeSuggestions(tokens: any, word_index: any): Promise<any> {
+  // console.dir(tokens, {'maxArrayLength': null});
   return new Promise((resolve, reject) => {
     const apiUrl: string = LOCALHOST_BASE_URL + PORT_NUM + "/suggest-types";
-    const jsonData = {
+    const jsonPayload = JSON.stringify({
       input_string: tokens,
       word_index: word_index,
-    };
+    }).replace(/"/g, '\\"');
 
-    const curlCommand = `curl -XPOST -H 'Content-type: application/json' -d '${JSON.stringify(
-      jsonData
-    )}' ${apiUrl}`;
-
+    const curlCommand = `curl -X POST -H "Content-Type: application/json" --data-raw "${jsonPayload}" ${apiUrl}`;
     exec(curlCommand, (error, stdout, stderr) => {
       if (error) {
         console.error("Error executing curl command:", error);
-        reject(error); // Reject the promise with the error
+        reject(error);
       } else {
         try {
           const result = JSON.parse(stdout);
-          console.log("result from getTypeSuggesstions:", result);
-          resolve(result); // Resolve the promise with the parsed result
+          // console.log("result from getTypeSuggesstions:", result);
+          resolve(result);
         } catch (parseError) {
           console.error("Error parsing JSON response:", parseError);
-          reject(parseError); // Reject the promise with the parse error
+          reject(parseError);
         }
       }
     });
   });
 }
+
 
 function incrementalCompile(dir: string): any {
   const configPath = ts.findConfigFile(dir, ts.sys.fileExists, "tsconfig.json");
@@ -465,43 +465,43 @@ function insert(
 
   const transformer =
     <T extends ts.Node>(context: ts.TransformationContext) =>
-    (rootNode: T) => {
-      function visit(node: ts.Node): ts.Node {
-        if (quickReturn || match_identifier) {
+      (rootNode: T) => {
+        function visit(node: ts.Node): ts.Node {
+          if (quickReturn || match_identifier) {
+            return node;
+          }
+          for (var child of node.getChildren(sourceFile)) {
+            visit(child);
+          }
+          if (node.kind === ts.SyntaxKind.Identifier) {
+            if (
+              node.getText() === word &&
+              node.pos < loc + INSERT_THRESHOLD_MARGIN &&
+              node.pos > loc - INSERT_THRESHOLD_MARGIN
+            ) {
+              match_identifier = true;
+            }
+          } else if (
+            match_identifier &&
+            (node.kind === ts.SyntaxKind.FunctionDeclaration ||
+              node.kind === ts.SyntaxKind.MethodDeclaration)
+          ) {
+            node["type"] = getType(type);
+            quickReturn = true;
+            match_identifier = false;
+          } else if (
+            match_identifier &&
+            (node.kind === ts.SyntaxKind.VariableDeclaration ||
+              node.kind === ts.SyntaxKind.Parameter)
+          ) {
+            node["type"] = getType(type);
+            quickReturn = true;
+            match_identifier = false;
+          }
           return node;
         }
-        for (var child of node.getChildren(sourceFile)) {
-          visit(child);
-        }
-        if (node.kind === ts.SyntaxKind.Identifier) {
-          if (
-            node.getText() === word &&
-            node.pos < loc + INSERT_THRESHOLD_MARGIN &&
-            node.pos > loc - INSERT_THRESHOLD_MARGIN
-          ) {
-            match_identifier = true;
-          }
-        } else if (
-          match_identifier &&
-          (node.kind === ts.SyntaxKind.FunctionDeclaration ||
-            node.kind === ts.SyntaxKind.MethodDeclaration)
-        ) {
-          node["type"] = getType(type);
-          quickReturn = true;
-          match_identifier = false;
-        } else if (
-          match_identifier &&
-          (node.kind === ts.SyntaxKind.VariableDeclaration ||
-            node.kind === ts.SyntaxKind.Parameter)
-        ) {
-          node["type"] = getType(type);
-          quickReturn = true;
-          match_identifier = false;
-        }
-        return node;
-      }
-      return ts.visitNode(rootNode, visit);
-    };
+        return ts.visitNode(rootNode, visit);
+      };
   const result: ts.TransformationResult<ts.SourceFile> =
     ts.transform<ts.SourceFile>(sourceFile, [transformer]);
   const transformedSourceFile: ts.SourceFile = result.transformed[0];

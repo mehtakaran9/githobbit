@@ -301,7 +301,6 @@ async function automatedInserter(file_name, dir_path) {
                 const result = await getTypeSuggestions(tokens, word_index);
                 if (result) {
                     var complete_list_of_types = await getTypes(inferred_type, result);
-                    console.log(complete_list_of_types);
                     var contents = insert(sourcefile, complete_list_of_types[0], document_position, word_of_interest);
                     file_name = changeExtension(file_name, "js", "ts");
                     writeToFile(file_name, contents);
@@ -375,27 +374,28 @@ function checkElement(element, idx, parsed) {
     return true;
 }
 async function getTypeSuggestions(tokens, word_index) {
+    // console.dir(tokens, {'maxArrayLength': null});
     return new Promise((resolve, reject) => {
         const apiUrl = LOCALHOST_BASE_URL + PORT_NUM + "/suggest-types";
-        const jsonData = {
+        const jsonPayload = JSON.stringify({
             input_string: tokens,
             word_index: word_index,
-        };
-        const curlCommand = `curl -XPOST -H 'Content-type: application/json' -d '${JSON.stringify(jsonData)}' ${apiUrl}`;
+        }).replace(/"/g, '\\"');
+        const curlCommand = `curl -X POST -H "Content-Type: application/json" --data-raw "${jsonPayload}" ${apiUrl}`;
         (0, child_process_1.exec)(curlCommand, (error, stdout, stderr) => {
             if (error) {
                 console.error("Error executing curl command:", error);
-                reject(error); // Reject the promise with the error
+                reject(error);
             }
             else {
                 try {
                     const result = JSON.parse(stdout);
-                    console.log("result from getTypeSuggesstions:", result);
-                    resolve(result); // Resolve the promise with the parsed result
+                    // console.log("result from getTypeSuggesstions:", result);
+                    resolve(result);
                 }
                 catch (parseError) {
                     console.error("Error parsing JSON response:", parseError);
-                    reject(parseError); // Reject the promise with the parse error
+                    reject(parseError);
                 }
             }
         });
