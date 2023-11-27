@@ -41,6 +41,7 @@ var totalDeepLearnerInferences = 0;
 var staticAnalysisTypes = 0;
 var modelBasedAnalysisTypes = 0;
 var common = 0;
+var anySelected = 0;
 var couldNotInfer = 0;
 let importSet = new Set();
 var LOCALHOST_BASE_URL = "http://127.0.0.1:";
@@ -428,6 +429,9 @@ function getType(deeplearnerType) {
 function insert(sourceFile, type, loc, word) {
     var quickReturn = false;
     var match_identifier = false;
+    if (type == "any") {
+        anySelected += 1;
+    }
     const transformer = (context) => (rootNode) => {
         function visit(node) {
             if (quickReturn || match_identifier) {
@@ -474,6 +478,7 @@ filteredFiles.forEach((file) => {
         console.log("Total Deep Learner Inferences: ", totalDeepLearnerInferences);
         console.log("Selected from static Analysis: ", staticAnalysisTypes);
         console.log("Selected from model based analysis: ", modelBasedAnalysisTypes);
+        console.log("Selected 'any' data type", anySelected);
         console.log("Common selections from Static Analysis and Deep Learner: ", common);
     });
 });

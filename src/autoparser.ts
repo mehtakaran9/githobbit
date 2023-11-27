@@ -6,7 +6,6 @@ import * as es from "esprima";
 import * as path from "path";
 import { exec } from "child_process";
 import { error } from "console";
-import axios from "axios";
 
 const PORT_NUM = 9090;
 var LINTER_THRESHOLD_MARGIN: number = 20;
@@ -17,6 +16,7 @@ var totalDeepLearnerInferences: number = 0;
 var staticAnalysisTypes: number = 0;
 var modelBasedAnalysisTypes: number = 0;
 var common: number = 0;
+var anySelected : number = 0;
 var couldNotInfer: number = 0;
 let importSet = new Set<String>();
 var LOCALHOST_BASE_URL = "http://127.0.0.1:";
@@ -462,7 +462,9 @@ function insert(
 ): any {
   var quickReturn: boolean = false;
   var match_identifier: boolean = false;
-
+  if (type == "any") {
+    anySelected += 1;
+  }
   const transformer =
     <T extends ts.Node>(context: ts.TransformationContext) =>
       (rootNode: T) => {
@@ -520,6 +522,7 @@ filteredFiles.forEach((file) => {
       "Selected from model based analysis: ",
       modelBasedAnalysisTypes
     );
+    console.log("Selected 'any' data type", anySelected);
     console.log(
       "Common selections from Static Analysis and Deep Learner: ",
       common
