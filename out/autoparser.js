@@ -31,7 +31,8 @@ const typescript_1 = __importDefault(require("typescript"));
 const process_1 = require("process");
 const fs = __importStar(require("fs"));
 const es = __importStar(require("esprima"));
-const child_process_1 = require("child_process");
+const axios_1 = __importDefault(require("axios"));
+const http_1 = __importDefault(require("http"));
 const PORT_NUM = 9090;
 var LINTER_THRESHOLD_MARGIN = 20;
 var INSERT_THRESHOLD_MARGIN = 20;
@@ -273,7 +274,7 @@ function identifyTokens(file_name, to_ignore, program) {
     return tokens;
 }
 async function automatedInserter(file_name, dir_path) {
-    var to_ignore = ignoredElements(file_name);
+    // var to_ignore = ignoredElements(file_name);
     let starting_tokens = identifyTokens(file_name, importSet, getProgram(dir_path));
     let length = starting_tokens.length;
     let idx = 0;
@@ -293,11 +294,13 @@ async function automatedInserter(file_name, dir_path) {
             var tokens = tokens_and_inferred[0];
             var inferred_type = tokens_and_inferred[1];
             var word_index = tokens_and_inferred[2];
-            console.log(word_of_interest +
-                " INFERRED TYPE: " +
-                inferred_type +
-                " WORD INDEX: " +
-                word_index);
+            // console.log(
+            //   word_of_interest +
+            //   " INFERRED TYPE: " +
+            //   inferred_type +
+            //   " WORD INDEX: " +
+            //   word_index
+            // );
             if (inferred_type && word_index) {
                 const result = await getTypeSuggestions(tokens, word_index);
                 if (result) {
@@ -374,33 +377,50 @@ function checkElement(element, idx, parsed) {
     }
     return true;
 }
+// async function getTypeSuggestions(tokens: any, word_index: any): Promise<any> {
+//   // console.dir(tokens, {'maxArrayLength': null});
+//   return new Promise((resolve, reject) => {
+//     const apiUrl: string = LOCALHOST_BASE_URL + PORT_NUM + "/suggest-types";
+//     const jsonPayload = JSON.stringify({
+//       input_string: tokens,
+//       word_index: word_index,
+//     }).replace(/'/g, "\\'");
+//     const curlCommand = `curl -X POST -H "Content-Type: application/json" --data-raw "${jsonPayload}" ${apiUrl}`;
+//     exec(curlCommand, (error, stdout, stderr) => {
+//       if (error) {
+//         console.error("Error executing curl command:", error);
+//         reject(error);
+//       } else {
+//         try {
+//           const result = JSON.parse(stdout);
+//           // console.log("result from getTypeSuggesstions:", result);
+//           resolve(result);
+//         } catch (parseError) {
+//           console.error("Error parsing JSON response:", parseError);
+//           reject(parseError);
+//         }
+//       }
+//     });
+//   });
+// }
 async function getTypeSuggestions(tokens, word_index) {
-    // console.dir(tokens, {'maxArrayLength': null});
-    return new Promise((resolve, reject) => {
-        const apiUrl = LOCALHOST_BASE_URL + PORT_NUM + "/suggest-types";
-        const jsonPayload = JSON.stringify({
-            input_string: tokens,
-            word_index: word_index,
-        }).replace(/"/g, '\\"');
-        const curlCommand = `curl -X POST -H "Content-Type: application/json" --data-raw "${jsonPayload}" ${apiUrl}`;
-        (0, child_process_1.exec)(curlCommand, (error, stdout, stderr) => {
-            if (error) {
-                console.error("Error executing curl command:", error);
-                reject(error);
-            }
-            else {
-                try {
-                    const result = JSON.parse(stdout);
-                    // console.log("result from getTypeSuggesstions:", result);
-                    resolve(result);
-                }
-                catch (parseError) {
-                    console.error("Error parsing JSON response:", parseError);
-                    reject(parseError);
-                }
-            }
+    const apiUrl = LOCALHOST_BASE_URL + PORT_NUM + "/suggest-types";
+    const jsonPayload = {
+        input_string: tokens,
+        word_index: word_index,
+    };
+    const agent = new http_1.default.Agent({ keepAlive: true });
+    try {
+        const response = await axios_1.default.post(apiUrl, jsonPayload, {
+            httpAgent: agent,
+            timeout: 300000, // Adjust the timeout value as needed
         });
-    });
+        return response.data;
+    }
+    catch (error) {
+        console.error("Error in axios.post:", error);
+        throw error; // Rethrow the error to propagate it up the call stack
+    }
 }
 function incrementalCompile(dir) {
     const configPath = typescript_1.default.findConfigFile(dir, typescript_1.default.sys.fileExists, "tsconfig.json");
@@ -480,7 +500,10 @@ filteredFiles.forEach((file) => {
         console.log("Selected from model based analysis: ", modelBasedAnalysisTypes);
         console.log("Selected 'any' data type", anySelected);
         console.log("Common selections from Static Analysis and Deep Learner: ", common);
+    }).catch((error) => {
+        console.log("Error occurred with file: ", error);
     });
 });
+console.log(filteredFiles.length);
 // calling the methods
 // TEST
